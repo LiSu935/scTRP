@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "scTRP"
+version = "0.1.0"
+description = "Single-cell T/B-cell Reactivity Prediction via contrastive learning on scRNA-seq and TCR/BCR sequences"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "LiSu935" }
+]
+keywords = ["single-cell", "TCR", "BCR", "contrastive learning", "scRNA-seq", "bioinformatics"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "torch>=1.13.0",
+    "numpy>=1.23",
+    "pyyaml>=6.0",
+    "scipy>=1.9",
+    "scikit-learn>=1.1",
+    "anndata>=0.9",
+    "tqdm>=4.64",
+    "pot>=0.9",          # Python Optimal Transport
+]
+
+[project.optional-dependencies]
+light = [
+    "xgboost>=1.7",
+    "scanpy>=1.9",
+    "joblib>=1.2",
+    "matplotlib>=3.6",
+]
+train = [
+    "wandb>=0.15",
+    "webdataset>=0.2",
+    "fair-esm>=2.0.0",
+    "flash-attn<1.0.5",
+    "transformers>=4.32.1",
+    "scanpy>=1.9",
+    "muon>=0.1",
+    "scirpy>=0.12",
+    # scGPT must be installed manually from source:
+    #   git clone https://github.com/bowang-lab/scGPT
+    #   pip install -e /path/to/scGPT
+]
+dev = [
+    "pytest>=7.0",
+    "black",
+    "isort",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scTRP*"]
+
+[tool.setuptools.package-data]
+"scTRP" = ["py.typed"]
