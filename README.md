@@ -2,7 +2,7 @@
 
 `scTRP` is a Python package for predicting T cell reactivity from single-cell multimodal data (scRNA-seq + scTCR-seq sequences). It offers two tiers:
 
-- **Full pipeline** — supervised contrastive learning on top of [scGPT](https://github.com/bowang-lab/scGPT) gene-expression embeddings and [ESM2](https://github.com/facebookresearch/esm) TCR-sequence embeddings (GPU required).
+- **Full pipeline** — multi-view contrastive learning on top of [scGPT](https://github.com/bowang-lab/scGPT) gene-expression embeddings and [ESM2](https://github.com/facebookresearch/esm) plus sequence profile of TCR-sequence embeddings (GPU required).
 - **Light alternative** — an XGBoost classifier trained directly on a small gene panel; no GPU, scGPT, or ESM2 needed.
 
 ---
