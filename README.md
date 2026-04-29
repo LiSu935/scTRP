@@ -1,4 +1,5 @@
-# scTRP — Single-cell T cell Reactivity Prediction
+# scTRP — single cell antiTumor Reactive T cell Predictor
+
 
 `scTRP` is a Python package for predicting T cell reactivity from single-cell multimodal data (scRNA-seq + scTCR-seq sequences). It offers two tiers:
 
