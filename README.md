@@ -26,12 +26,21 @@
 
 ## Installation
 
+### Set the environment (recommended)
+
+```bash
+
+```
+
 ### From source (recommended)
 
 ```bash
 git clone https://github.com/LiSu935/scTRP.git
 cd scTRP
-pip install -e .
+conda env create -f environment.yml
+# then
+pip install -r requirements-pip.txt
+#pip install -e .
 ```
 
 ### From PyPI (once published)
