@@ -57,6 +57,7 @@ pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 \
     --extra-index-url https://download.pytorch.org/whl/cu117
 
 # scGPT (gene-expression encoder) + pinned flash-attn/numpyro to avoid ABI conflicts
+# scGPT is installed according to its github <https://github.com/bowang-lab/scgpt>
 python3 -m pip install scgpt==0.1.7 "flash-attn<1.0.5" "numpyro==0.13.2"
 
 # ESM2 (TCR sequence encoder)
