@@ -11,94 +11,86 @@
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Environment Setup](#environment-setup)
-3. [Data Preparation](#data-preparation)
-4. [Training](#training)
+2. [Data Preparation](#data-preparation)
+3. [Training](#training)
    - [Mode A — SimCLR + SupCon-Hard (ESM2 only)](#mode-a--simclr--supcon-hard-esm2-only)
    - [Mode B — SimCLR + SupCon-Hard (ESM2 + extra features)](#mode-b--simclr--supcon-hard-esm2--extra-features)
    - [Mode C — SupCon-Hard only (no TCR sequence branch)](#mode-c--supcon-hard-only-no-tcr-sequence-branch)
    - [Mode D — XGBoost light classifier (no GPU required)](#mode-d--xgboost-light-classifier-no-gpu-required)
-5. [Inference (full pipeline)](#inference-full-pipeline)
-6. [Package API](#package-api)
-7. [Repository Layout](#repository-layout)
+4. [Inference (full pipeline)](#inference-full-pipeline)
+5. [Package API](#package-api)
+6. [Repository Layout](#repository-layout)
 
 ---
 
 ## Installation
 
-### Set the environment (recommended)
-
-```bash
-
-```
-
-### From source (recommended)
+Tested with Python 3.10 + CUDA 11.7. Clone the repo first:
 
 ```bash
 git clone https://github.com/LiSu935/scTRP.git
 cd scTRP
+```
+
+### Step 1 — Create the base conda env
+
+```bash
 conda env create -f environment.yml
-# then
+conda activate scTRP_test0824
+```
+
+### Step 2 — If the `Step 1` fails, build the env step by step
+
+Use this fallback if `conda env create -f environment.yml` fails to resolve. Cross-reference
+[`requirements_pip_freeze.txt`](requirements_pip_freeze.txt) for exact versions of everything else.
+
+```bash
+# Base env: Python, pip, and R (rpy2 below needs r-base)
+conda create --name scTRP_test0824 python=3.10 pip=23.3.* "r-base==4.4" -c conda-forge
+conda activate scTRP_test0824
+
+# CUDA 11.7 toolkit (matches the torch build installed next)
+conda install -c nvidia/label/cuda-11.7.0 cuda-toolkit -y
+
+# PyTorch stack pinned to CUDA 11.7
+pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 \
+    --extra-index-url https://download.pytorch.org/whl/cu117
+
+# scGPT (gene-expression encoder) + pinned flash-attn/numpyro to avoid ABI conflicts
+python3 -m pip install scgpt==0.1.7 "flash-attn<1.0.5" "numpyro==0.13.2"
+
+# ESM2 (TCR sequence encoder)
+python3 -m pip install fair-esm
+
+# XGBoost for the light classifier; --no-deps avoids pulling in a conflicting numpy/scipy
+python3 -m pip install xgboost --no-deps
+
+# rpy2 bridges to the R installation created above
+python3 -m pip install rpy2==3.5.12
+
+# wandb and its transitive deps, installed individually with --no-deps / pinned
+# versions to avoid pip's resolver dragging in incompatible package versions
+python3 -m pip install wandb==0.15.12 --no-deps
+python3 -m pip install click --no-deps
+python3 -m pip install appdirs --no-deps
+python3 -m pip install docker-pycreds --no-deps
+python3 -m pip install docker-pycreds
+python3 -m pip install GitPython==3.1.40
+python3 -m pip install psutil==5.9.1
+python3 -m pip install sentry-sdk==1.34.0
+python3 -m pip install pathtools==0.1.2
+python3 -m pip install setproctitle==1.3.3
+```
+
+### Step 3 — Install scTRP
+
+```bash
 pip install -r requirements-pip.txt
-#pip install -e .
+pip install -e .
 ```
 
-### From PyPI (once published)
-
-```bash
-pip install scTRP
-```
-
-### Light XGBoost alternative (no GPU)
-
-```bash
-pip install -e ".[light]"
-# installs: xgboost, scanpy, joblib, matplotlib
-```
-
-### Full training pipeline (GPU required)
-
-Training requires additional heavy dependencies (wandb, webdataset, ESM2, scGPT, flash-attn):
-
-```bash
-pip install -e ".[train]"
-```
-
-> **scGPT** must be installed separately from source:
-> ```bash
-> git clone https://github.com/bowang-lab/scGPT
-> pip install -e /path/to/scGPT
-> ```
-> The scripts auto-detect scGPT at a few known cluster paths; set the path manually in
-> `scTRP/inference/functions.py` if needed.
-
----
-
-## Environment Setup
-
-Tested with Python 3.10 + CUDA 11.7:
-
-```bash
-conda create -n sctrp python=3.10
-conda activate sctrp
-
-# PyTorch (adjust cuda version to match your driver)
-conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 \
-    -c pytorch -c nvidia
-
-# Bioinformatics stack
-conda install -c conda-forge matplotlib pandas scikit-learn scipy
-pip install tqdm PyYAML webdataset fair-esm anndata muon scanpy scirpy
-conda install -c huggingface transformers==4.32.1
-pip install peft wandb "flash-attn<1.0.5" pot
-
-# scGPT (from source)
-git clone https://github.com/bowang-lab/scGPT /path/to/scGPT
-pip install -e /path/to/scGPT
-
-# scTRP
-pip install -e /path/to/scTRP
-```
+> **scGPT auto-detection:** the scripts look for scGPT at a few known cluster paths; set the
+> path manually in `scTRP/inference/functions.py` if it isn't found automatically.
 
 ---
 
