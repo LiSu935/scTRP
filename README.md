@@ -12,12 +12,12 @@
 
 1. [Installation](#installation)
 2. [Data Preparation](#data-preparation)
-3. [Training](#training)
+3. [Inference (leave-one-out rank-min ensemble)](#inference-leave-one-out-rank-min-ensemble)
+4. [Training](#training)
    - [Mode A — SimCLR + SupCon-Hard (ESM2 only)](#mode-a--simclr--supcon-hard-esm2-only)
    - [Mode B — SimCLR + SupCon-Hard (ESM2 + extra features)](#mode-b--simclr--supcon-hard-esm2--extra-features)
    - [Mode C — SupCon-Hard only (no TCR sequence branch)](#mode-c--supcon-hard-only-no-tcr-sequence-branch)
    - [Mode D — XGBoost light classifier (no GPU required)](#mode-d--xgboost-light-classifier-no-gpu-required)
-4. [Inference (full pipeline)](#inference-full-pipeline)
 5. [Package API](#package-api)
 6. [Repository Layout](#repository-layout)
 
@@ -134,6 +134,58 @@ python classifier/data_prep/encode_seq_with_pretrained_ESM2_extraFeat.py \
     --extra_feat_keys  hmm_score_tra hmm_score_trb \
     --train_h5ad       /path/to/train.h5ad
 ```
+
+---
+
+## Inference (leave-one-out rank-min ensemble)
+
+The [`tutorial_inference/`](tutorial_inference) folder is a self-contained, third-party-friendly
+tutorial for scoring a new test cohort with the full pipeline. It runs your `.h5ad` through 6
+leave-one-out model folds (one per training study — `caushi`, `hanada`, `lowery`, `meng`,
+`oliveira`, `zheng`) and combines the 6 per-fold reactivity scores into a single binary call per
+cell via a **rank-min consensus**: a cell must rank high in every fold to be called reactive.
+
+Each fold ships as `model_eN.pt` + `gene_panel.json` + `train_embeddings.npz` +
+`val_embeddings.npz` under `${ROOT_DIR}/model_folds/{study}/{model_family}/`. These embeddings
+files contain only projector embeddings and reactivity labels (no expression matrix), so running
+this tutorial never requires access to the private per-study train `.h5ad` files.
+
+**Contents:**
+
+| File | Description |
+|---|---|
+| `tutorial_inference_rankmin.py` | Script entry point (also mirrored as `tutorial_inference_rankmin.ipynb`) |
+| `tutorial_infer_functions.py` | Shared helpers: config/model/vocab setup, gene-panel alignment, fold inference, pooling, rank-min scoring |
+
+### Usage
+
+```bash
+python tutorial_inference/tutorial_inference_rankmin.py \
+    --root_dir       /path/to/root_dir \
+    --test_h5ad_path /path/to/your_test_data.h5ad \
+    --model_family   scTRP_simclr \
+    --pool_type      max
+```
+
+> **Output location:** results are written into the **same directory as `--test_h5ad_path`** —
+> `rank_min_final_predictions.csv` (final per-cell prediction + rank-min score + per-fold scores)
+> and `fold_scores.csv` (raw per-fold reactivity scores before pooling/rank-min). Use `--out_csv`
+> / `--score_mat_csv` to override either path.
+
+### Inference Parameters
+
+| Parameter | Description | Default |
+|---|---|---|
+| `--root_dir` | Contains `model_folds/{study}/{model_family}/` per fold | required |
+| `--test_h5ad_path` | Test `.h5ad` to score; outputs are written next to it | required |
+| `--model_family` | `scTRP_simclr` or `scTRP_only` | `scTRP_simclr` |
+| `--studies` | Subset of the 6 leave-one-out studies to ensemble over | all 6 |
+| `--scgpt_bc_dir` | Path to the scGPT (bc) pretrained model/vocab dir | see `tutorial_infer_functions.SCGPT_BC_DIR` |
+| `--max_seq_len` | Max gene sequence length for scGPT tokenizer | `1200` |
+| `--batch_size` | Batch size for embedding extraction | `32` |
+| `--pool_type` | Clonotype pooling before the rank-min ensemble (`raw`, `mean`, `max`, `median`, `p75`); `raw` = no pooling | `max` |
+| `--out_csv` | Output path for final predictions | `rank_min_final_predictions.csv` next to `--test_h5ad_path` |
+| `--score_mat_csv` | Output path for raw per-fold score matrix | `fold_scores.csv` next to `--test_h5ad_path` |
 
 ---
 
@@ -282,43 +334,6 @@ The CSV should have gene names in the first column (no header required, or any h
 
 ---
 
-## Inference (full pipeline)
-
-Runs trained checkpoints on a test cohort. Supports both in-distribution evaluation
-(AUROC / accuracy metrics computed against ground-truth labels) and new-data mode
-(OT-based reactivity scoring for unlabeled cohorts).
-
-```bash
-python scripts/infer.py \
-    --train_data_path             /path/to/train.h5ad \
-    --test_data_path              /path/to/test.h5ad \
-    --load_local_pretrain_pathList /path/to/model1.pt,/path/to/model2.pt \
-    --batch_size 32
-```
-
-For new (unlabeled) cohort scoring, add `--test_new_data`:
-
-```bash
-python scripts/infer.py \
-    --train_data_path             /path/to/train.h5ad \
-    --test_data_path              /path/to/new_cohort.h5ad \
-    --load_local_pretrain_pathList /path/to/model.pt \
-    --test_new_data
-```
-
-### Inference Parameters
-
-| Parameter | Description | Default |
-|---|---|---|
-| `--load_local_pretrain_pathList` | Comma-separated list of `.pt` checkpoint paths | required |
-| `--train_data_path` | Training `.h5ad` (builds reference embeddings) | required |
-| `--test_data_path` | Test `.h5ad` | required |
-| `--batch_size` | Batch size for embedding extraction | `32` |
-| `--max_seq_len` | Max gene sequence length for scGPT tokenizer | `1200` |
-| `--test_new_data` | Switch to OT-based new-cohort mode | `False` |
-
----
-
 ## Package API
 
 The `scTRP` package exposes the core building blocks for programmatic use:
@@ -385,6 +400,11 @@ classifier/                    # original scripts (reference implementations)
 ├── model_explainability/      # Attention weights, GRN inference
 ├── utils/                     # Shared utilities
 └── archived/                  # Superseded scripts (kept for reference)
+
+tutorial_inference/            # leave-one-out rank-min ensemble tutorial
+├── tutorial_inference_rankmin.py    # script entry point
+├── tutorial_inference_rankmin.ipynb # notebook version
+└── tutorial_infer_functions.py      # shared helpers
 
 data_prep/                     # Raw 10x → AnnData conversion
 pyproject.toml
