@@ -117,6 +117,10 @@ without a label are dropped. The final `{SAMPLE}_esm2encoded.tar` is the file pa
 
 ## Inference (leave-one-out rank-min ensemble)
 
+**Model folds:** download the [model folds archive (`tar.gz`)](https://drive.google.com/file/d/1Ev3sI-bosTgtMZsv8iKV7wjieZe75g4r/view?usp=sharing) and extract it with
+`tar -xzf model_folds.tar.gz -C /path/to/root_dir`, which creates `/path/to/root_dir/model_folds/`.
+Then pass `/path/to/root_dir` as `--root_dir` (or `ROOT_DIR` in the notebook).
+
 The [`tutorial_inference/`](tutorial_inference) folder is a self-contained, third-party-friendly
 tutorial for scoring a new test cohort with the full pipeline. It runs your `.h5ad` through 6
 leave-one-out model folds (one per training study — `caushi`, `hanada`, `lowery`, `meng`,
