@@ -11,7 +11,7 @@
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Data Preparation](#data-preparation)
+2. [Data Preparation for training](#data-preparation-for-training)
 3. [Inference (leave-one-out rank-min ensemble)](#inference-leave-one-out-rank-min-ensemble)
 4. [Training](#training)
    - [Mode A — SimCLR + SupCon-Hard (ESM2 only)](#mode-a--simclr--supcon-hard-esm2-only)
@@ -90,50 +90,28 @@ pip install -r requirements-pip.txt
 pip install -e .
 ```
 
-> **scGPT auto-detection:** the scripts look for scGPT at a few known cluster paths; set the
-> path manually in `scTRP/inference/functions.py` if it isn't found automatically.
+> **scGPT source path:** the scripts take the scGPT source location from `--scgpt_path` or the
+> `SCGPT_PATH` environment variable instead of a hard-coded path. The ESM2 encoder is imported from
+> `utils/simclr_esm2_functions.py` in this repo, so no other repo checkout is needed.
 
 ---
 
-## Data Preparation
+## Data Preparation for Training
 
-### Step 1 — Build AnnData from 10x output
+Scripts and a guided notebook live in [`data_prep/`](data_prep). The notebook
+[`data_prep/build_training_data.ipynb`](data_prep/build_training_data.ipynb) runs every step below
+for one sample (run it from inside `data_prep/`), with the bash equivalent of each step.
 
-```bash
-python data_prep/load_TCR_RNA_prep.py \
-    --input  /path/to/10x_dir \
-    --output /path/to/output.h5ad
-```
+| Step | What it does | Script | Output |
+|---|---|---|---|
+| 1 | QC, CPM-normalisation, log1p, HVG selection; attaches CDR3 and reactivity labels | `prep_log1p_h5ad.py` | `{SAMPLE}_log1p.h5ad` |
+| 2 | Tokenizes each cell with the scGPT vocabulary (binned expression), one `.npz` per cell | `tokenize_h5ad.py` | `tokenized_data/*.npz` |
+| 3 | Packs the `tokenized_data/` folder into a webdataset `.tar` | notebook cell (`tarfile`) | `{SAMPLE}.tar` |
+| 4 | Encodes each CDR3 sequence with pretrained ESM2 (adds `esm2_emb`, shape `[1, 1280]`) | `encode_seq_with_pretrained_ESM2.py` (GPU) | `{SAMPLE}_esm2encoded.tar` |
 
-Output `.h5ad` contains:
-- `adata.X` — CPM-normalized, log1p-transformed expression (2000 HVGs)
-- `adata.obs['reactivity']` — binary label (`'0'` / `'1'`)
-- `adata.obs['cdr3_aa']` — paired TRA+TRB CDR3 sequence (separated by `;`)
-
-### Step 2 — Encode CDR3 sequences with ESM2
-
-Encodes CDR3 sequences offline and saves `.npz` files inside a webdataset `.tar` archive.
-Each sample gets an `esm2_emb` key (shape `[1, 1280]`).
-
-```bash
-python classifier/data_prep/encode_seq_with_pretrained_ESM2.py \
-    --input_h5ad  /path/to/data.h5ad \
-    --output_tar  /path/to/encoded.tar
-```
-
-### Step 2b — Encode with extra features (optional)
-
-If you have per-cell extra features (e.g. HMM similarity scores), use the extra-feat variant.
-Features are z-score normalized using **train-set statistics**; missing values are filled with 0
-before statistics are computed.
-
-```bash
-python classifier/data_prep/encode_seq_with_pretrained_ESM2_extraFeat.py \
-    --input_h5ad       /path/to/data.h5ad \
-    --output_tar       /path/to/encoded_extrafeat.tar \
-    --extra_feat_keys  hmm_score_tra hmm_score_trb \
-    --train_h5ad       /path/to/train.h5ad
-```
+Step 1 needs a CSV with the cell barcode as index and a `reactivity` column (`0` / `1`) — cells
+without a label are dropped. The final `{SAMPLE}_esm2encoded.tar` is the file passed to training as
+`--train_data_path_simclr` / `--val_data_path_simclr`.
 
 ---
 
@@ -406,7 +384,7 @@ tutorial_inference/            # leave-one-out rank-min ensemble tutorial
 ├── tutorial_inference_rankmin.ipynb # notebook version
 └── tutorial_infer_functions.py      # shared helpers
 
-data_prep/                     # Raw 10x → AnnData conversion
+data_prep/                     # training-data prep: 10x → log1p h5ad → npz → ESM2 tar (see build_training_data.ipynb)
 pyproject.toml
 requirements.txt
 README.md

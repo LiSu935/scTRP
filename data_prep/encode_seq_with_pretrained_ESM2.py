@@ -45,44 +45,46 @@ import scanpy as sc
 import sklearn
 import warnings
 
-sys.path.insert(0, "/cluster/pixstor/xudong-lab/suli/tools_related/scGPT/")
-import scgpt as scg
-import json
-from scgpt.data_collator import DataCollator
-from scgpt.model import TransformerModel
 
-from scgpt.tokenizer import GeneVocab
+parser = argparse.ArgumentParser(description='Encode CDR3 sequences with pretrained ESM2 and pack the npz files into a tar')
+parser.add_argument('--checkpoints', type=str, default=None, help='path to checkpoints')
 
-import sys
-# Add the project directory to sys.path
-sys.path.append('/cluster/pixstor/xudong-lab/suli/Alg_development/scRNA_TCRBCR_surfaceProtein/scripts/scRNA_TCRBCR_surfaceProtein/')
-from duolin_contrastiveLearning.scgpt_representation_fixpretrain_LIGHT import Transformer_ESM2_representation_fixpretrain, MoBYMLP
-
-from types import SimpleNamespace
-"""
-# tem debugging:
-args_ = dict(
-    checkpoints=None,
-    data_url='/cluster/pixstor/xudong-lab/suli/Alg_development/scRNA_TCRBCR_surfaceProtein/processed_data/classifier/six_studies/test_caushi/hvg2000_by_study_6_89_genes/val_5_S_6Inter89_coarseLabel_withCDR3_tokenized_data.tar',
-    run_mode='do_seq_only',
-    
-)
-
-args = SimpleNamespace(**args_)
-
---data_url XXX.tar
-"""
-parser = argparse.ArgumentParser(description='PyTorch SimCLR check embedding from checkpoints')
-parser.add_argument('--checkpoints', type=str, default=None, help='path to checkpoints') 
-
-# args.data_url 
-parser.add_argument('--data_url', metavar='DIR', default="/cluster/pixstor/xudong-lab/suli/Alg_development/scRNA_TCRBCR_surfaceProtein/processed_data/blood_model/TenX_5k_melanoma.tar", help='path to datasets') 
+parser.add_argument('--data_url', metavar='TAR', required=True,
+                    help='webdataset .tar of tokenized npz files (output of Step 3 in build_training_data.ipynb). '
+                         'Output is written to <name>_esm2encoded/ and <name>_esm2encoded.tar')
 
 parser.add_argument('--run_mode', type=str, default='do_seq_only', help='choose from ["run_both_modalities", "do_gex_only", "do_seq_only"]')
 
+# ---- source paths ----
+# Priority: --scgpt_path  →  SCGPT_PATH env var  →  known fallbacks.
+parser.add_argument('--scgpt_path', type=str, default=None,
+                    help='Path to scGPT source directory (contains the scgpt/ package). '
+                         'Alternative: set SCGPT_PATH env var. '
+                         'Examples: /fs/ess/PCON0022/lsxgf/tools_related/scGPT/ '
+                         'or /cluster/pixstor/xudong-lab/suli/tools_related/scGPT/')
+
 args = parser.parse_args()
 
-#"""
+
+def _resolve_source_dir(explicit, env_var, fallbacks, label):
+    path = explicit or os.environ.get(env_var)
+    if path is None:
+        path = next((p for p in fallbacks if Path(p).exists()), None)
+    if path is None:
+        raise FileNotFoundError(f"{label} source dir not found: pass --{label}_path or set {env_var}")
+    sys.path.insert(0, path)
+    return path
+
+
+_resolve_source_dir(args.scgpt_path, "SCGPT_PATH", [
+    "/fs/ess/PCON0022/lsxgf/tools_related/scGPT/",
+    "/cluster/pixstor/xudong-lab/suli/tools_related/scGPT/",
+], "scgpt")
+# scTRP repo root (this file lives in data_prep/), for the local utils/ package
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.simclr_esm2_functions import Transformer_ESM2_representation_fixpretrain, MoBYMLP
+
+
 
 model_seq = Transformer_ESM2_representation_fixpretrain(esm2_pretrain='esm2_t33_650M_UR50D', esm2_pretrain_local=None,
                                                         inner_dim=2048,out_dim=128,
