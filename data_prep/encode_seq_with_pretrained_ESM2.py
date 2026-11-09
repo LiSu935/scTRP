@@ -1,4 +1,4 @@
-# 20250521
+# 20250521 
 # modified from duolin_contrastiveLearning/Check_embedding_alongTraining.py
 # this is for encoding the seq with pretrained ESM2 with npz input.
 
