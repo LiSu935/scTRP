@@ -19,6 +19,7 @@ Usage:
 --reactivity_csv: a CSV whose index is the cell barcode (e.g. AAACCTGAGAAGGCCT-1) and
 which has a column named 'reactivity' holding 0 or 1.
 """
+
 import argparse
 import os
 import sys
