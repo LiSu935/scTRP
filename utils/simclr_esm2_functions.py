@@ -1,9 +1,9 @@
 """
 ESM2 TCR-sequence encoder and projector used by the scTRP encoding and training scripts.
-
 Copied from duolin_contrastiveLearning/scgpt_representation_fixpretrain_LIGHT.py so the
 scTRP repo does not depend on the external scRNA_TCRBCR_surfaceProtein checkout.
 """
+
 import esm
 import torch
 from torch import nn
