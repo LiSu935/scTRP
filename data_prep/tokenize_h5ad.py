@@ -13,6 +13,7 @@ Usage:
         --output_dir      /path/to/work/sample/tokenized_data/ \\
         --scgpt_model_dir /path/to/scgpt_human \\
         --prefix          sample
+        
 """
 import argparse
 import json
