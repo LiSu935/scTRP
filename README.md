@@ -150,7 +150,7 @@ python tutorial_inference/tutorial_inference_rankmin.py \
 ```
 
 > **Output location:** results are written into the **same directory as `--test_h5ad_path`** —
-> `rank_min_final_predictions.csv` (final per-cell prediction + rank-min score + per-fold scores)
+> `rank_min_final_predictions.csv` (column `pred`: final per-cell prediction [1 or 0] + column `rank_min_study`: rank-min score (higher score means higher predicted reactivity) + per-fold scores)
 > and `fold_scores.csv` (raw per-fold reactivity scores before pooling/rank-min). Use `--out_csv`
 > / `--score_mat_csv` to override either path.
 
@@ -159,7 +159,7 @@ python tutorial_inference/tutorial_inference_rankmin.py \
 | Parameter | Description | Default |
 |---|---|---|
 | `--root_dir` | Contains `model_folds/{study}/{model_family}/` per fold | required |
-| `--test_h5ad_path` | Test `.h5ad` to score; outputs are written next to it | required |
+| `--test_h5ad_path` | Test log1p `.h5ad` to score; outputs are written next to it | required |
 | `--model_family` | `scTRP_simclr` or `scTRP_only` | `scTRP_simclr` |
 | `--studies` | Subset of the 6 leave-one-out studies to ensemble over | all 6 |
 | `--scgpt_bc_dir` | Path to the scGPT (bc) pretrained model/vocab dir | see `tutorial_infer_functions.SCGPT_BC_DIR` |
