@@ -11,15 +11,16 @@
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Data Preparation for training](#data-preparation-for-training)
+2. [Test Dataset](#test-dataset)
 3. [Inference (leave-one-out rank-min ensemble)](#inference-leave-one-out-rank-min-ensemble)
-4. [Training](#training)
+4. [Data Preparation for training](#data-preparation-for-training)
+5. [Training](#training)
    - [Mode A — SimCLR + SupCon-Hard (ESM2 only)](#mode-a--simclr--supcon-hard-esm2-only)
    - [Mode B — SimCLR + SupCon-Hard (ESM2 + extra features)](#mode-b--simclr--supcon-hard-esm2--extra-features)
    - [Mode C — SupCon-Hard only (no TCR sequence branch)](#mode-c--supcon-hard-only-no-tcr-sequence-branch)
    - [Mode D — XGBoost light classifier (no GPU required)](#mode-d--xgboost-light-classifier-no-gpu-required)
-5. [Package API](#package-api)
-6. [Repository Layout](#repository-layout)
+6. [Package API](#package-api)
+7. [Repository Layout](#repository-layout)
 
 ---
 
@@ -60,6 +61,10 @@ pip install torch==1.13.0+cu117 torchvision==0.14.0+cu117 torchaudio==0.13.0 \
 # scGPT is installed according to its github <https://github.com/bowang-lab/scgpt>
 python3 -m pip install scgpt==0.1.7 "flash-attn<1.0.5" "numpyro==0.13.2"
 
+# Also clone the scGPT source into a new directory (outside this repo).
+# Remember this path: pass it later as --scgpt_path (it is the folder that contains scgpt/).
+git clone https://github.com/bowang-lab/scGPT.git /path/to/scGPT
+
 # ESM2 (TCR sequence encoder)
 python3 -m pip install fair-esm
 
@@ -90,28 +95,31 @@ pip install -r requirements-pip.txt
 pip install -e .
 ```
 
-> **scGPT source path:** the scripts take the scGPT source location from `--scgpt_path` or the
-> `SCGPT_PATH` environment variable instead of a hard-coded path. The ESM2 encoder is imported from
+> **scGPT source path:** the scripts take the scGPT source location (the scGPT repo cloned in
+> Step 2, `git clone https://github.com/bowang-lab/scGPT.git /path/to/scGPT` — do this even if you
+> created the env with Step 1) from `--scgpt_path` or the `SCGPT_PATH` environment variable instead
+> of a hard-coded path. For inference, `--scgpt_path` is required. The ESM2 encoder is imported from
 > `utils/simclr_esm2_functions.py` in this repo, so no other repo checkout is needed.
+
+### Step 4 — Download the pretrained scGPT blood model
+
+Download the pretrained scGPT **blood** model (model weights, `args.json` and `vocab.json`)
+following the instructions at <https://github.com/bowang-lab/scgpt>, and extract it to a local
+directory, e.g. `/path/to/scGPT_bc`. Pass this directory to `--scgpt_bc_dir` when running
+inference:
+
+```bash
+python tutorial_inference/tutorial_inference_rankmin.py \
+    --scgpt_bc_dir /path/to/scGPT_bc \
+    ...
+```
 
 ---
 
-## Data Preparation for Training
+## Test Dataset
 
-Scripts and a guided notebook live in [`data_prep/`](data_prep). The notebook
-[`data_prep/build_training_data.ipynb`](data_prep/build_training_data.ipynb) runs every step below
-for one sample (run it from inside `data_prep/`), with the bash equivalent of each step.
-
-| Step | What it does | Script | Output |
-|---|---|---|---|
-| 1 | QC, CPM-normalisation, log1p, HVG selection; attaches CDR3 and reactivity labels | `prep_log1p_h5ad.py` | `{SAMPLE}_log1p.h5ad` |
-| 2 | Tokenizes each cell with the scGPT vocabulary (binned expression), one `.npz` per cell | `tokenize_h5ad.py` | `tokenized_data/*.npz` |
-| 3 | Packs the `tokenized_data/` folder into a webdataset `.tar` | notebook cell (`tarfile`) | `{SAMPLE}.tar` |
-| 4 | Encodes each CDR3 sequence with pretrained ESM2 (adds `esm2_emb`, shape `[1, 1280]`) | `encode_seq_with_pretrained_ESM2.py` (GPU) | `{SAMPLE}_esm2encoded.tar` |
-
-Step 1 needs a CSV with the cell barcode as index and a `reactivity` column (`0` / `1`) — cells
-without a label are dropped. The final `{SAMPLE}_esm2encoded.tar` is the file passed to training as
-`--train_data_path_simclr` / `--val_data_path_simclr`.
+A test dataset is available at Zenodo: <https://doi.org/10.5281/zenodo.24113970>. It is also
+included in this repository under [`tutorial_inference/test_data_dir/example_pt`](tutorial_inference/test_data_dir/example_pt).
 
 ---
 
@@ -145,6 +153,8 @@ this tutorial never requires access to the private per-study train `.h5ad` files
 python tutorial_inference/tutorial_inference_rankmin.py \
     --root_dir       /path/to/root_dir \
     --test_h5ad_path /path/to/your_test_data.h5ad \
+    --scgpt_path     /path/to/scGPT \
+    --scgpt_bc_dir   /path/to/scGPT_bc \
     --model_family   scTRP_simclr \
     --pool_type      max
 ```
@@ -162,12 +172,32 @@ python tutorial_inference/tutorial_inference_rankmin.py \
 | `--test_h5ad_path` | Test log1p `.h5ad` to score; outputs are written next to it | required |
 | `--model_family` | `scTRP_simclr` or `scTRP_only` | `scTRP_simclr` |
 | `--studies` | Subset of the 6 leave-one-out studies to ensemble over | all 6 |
-| `--scgpt_bc_dir` | Path to the scGPT (bc) pretrained model/vocab dir | see `tutorial_infer_functions.SCGPT_BC_DIR` |
+| `--scgpt_path` | scGPT source directory (cloned [scGPT repo](https://github.com/bowang-lab/scgpt) containing `scgpt/`) | required |
+| `--scgpt_bc_dir` | Pretrained scGPT blood model dir (`args.json`, `vocab.json`, weights; see Installation Step 4) | required |
 | `--max_seq_len` | Max gene sequence length for scGPT tokenizer | `1200` |
 | `--batch_size` | Batch size for embedding extraction | `32` |
 | `--pool_type` | Clonotype pooling before the rank-min ensemble (`raw`, `mean`, `max`, `median`, `p75`); `raw` = no pooling | `max` |
 | `--out_csv` | Output path for final predictions | `rank_min_final_predictions.csv` next to `--test_h5ad_path` |
 | `--score_mat_csv` | Output path for raw per-fold score matrix | `fold_scores.csv` next to `--test_h5ad_path` |
+
+---
+
+## Data Preparation for Training
+
+Scripts and a guided notebook live in [`data_prep/`](data_prep). The notebook
+[`data_prep/build_training_data.ipynb`](data_prep/build_training_data.ipynb) runs every step below
+for one sample (run it from inside `data_prep/`), with the bash equivalent of each step.
+
+| Step | What it does | Script | Output |
+|---|---|---|---|
+| 1 | QC, CPM-normalisation, log1p, HVG selection; attaches CDR3 and reactivity labels | `prep_log1p_h5ad.py` | `{SAMPLE}_log1p.h5ad` |
+| 2 | Tokenizes each cell with the scGPT vocabulary (binned expression), one `.npz` per cell | `tokenize_h5ad.py` | `tokenized_data/*.npz` |
+| 3 | Packs the `tokenized_data/` folder into a webdataset `.tar` | notebook cell (`tarfile`) | `{SAMPLE}.tar` |
+| 4 | Encodes each CDR3 sequence with pretrained ESM2 (adds `esm2_emb`, shape `[1, 1280]`) | `encode_seq_with_pretrained_ESM2.py` (GPU) | `{SAMPLE}_esm2encoded.tar` |
+
+Step 1 needs a CSV with the cell barcode as index and a `reactivity` column (`0` / `1`) — cells
+without a label are dropped. The final `{SAMPLE}_esm2encoded.tar` is the file passed to training as
+`--train_data_path_simclr` / `--val_data_path_simclr`.
 
 ---
 

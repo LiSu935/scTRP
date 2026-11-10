@@ -15,6 +15,8 @@ embeddings and reactivity labels, never expression values.
 Usage:
     python tutorial_inference_rankmin.py \\
         --root_dir /path/to/root_dir \\
+        --scgpt_path /path/to/scGPT \\
+        --scgpt_bc_dir /path/to/scGPT_bc \\
         --test_h5ad_path /path/to/your_test_data.h5ad
 
 Output: rank_min_final_predictions.csv, written next to --test_h5ad_path.
@@ -22,6 +24,7 @@ Output: rank_min_final_predictions.csv, written next to --test_h5ad_path.
 import scanpy as sc
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -29,6 +32,14 @@ import numpy as np
 import pandas as pd
 
 import torch
+
+# Pre-parse --scgpt_path from argv so SCGPT_PATH is set before
+# tutorial_infer_functions (which imports scgpt) is loaded.
+for _i, _a in enumerate(sys.argv):
+    if _a == "--scgpt_path" and _i + 1 < len(sys.argv):
+        os.environ["SCGPT_PATH"] = sys.argv[_i + 1]
+    elif _a.startswith("--scgpt_path="):
+        os.environ["SCGPT_PATH"] = _a.split("=", 1)[1]
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -43,7 +54,6 @@ from tutorial_infer_functions import (
     _pool_score_matrix,
     compute_rankmin_study,
     POOL_TYPES,
-    SCGPT_BC_DIR,
 )
 
 SIX_STUDIES = ["caushi", "hanada", "lowery", "meng", "oliveira", "zheng"]
@@ -59,7 +69,10 @@ def parse_args():
     p.add_argument("--model_family", default="scTRP_simclr",
                     choices=["scTRP_simclr", "scTRP_only"])
     p.add_argument("--studies", nargs="+", default=SIX_STUDIES, choices=SIX_STUDIES)
-    p.add_argument("--scgpt_bc_dir", default=SCGPT_BC_DIR)
+    p.add_argument("--scgpt_path", required=True,
+                    help="scGPT source directory (the cloned repo containing scgpt/)")
+    p.add_argument("--scgpt_bc_dir", required=True,
+                    help="Pretrained scGPT blood model dir (args.json, vocab.json, weights)")
     p.add_argument("--max_seq_len", type=int, default=1200)
     p.add_argument("--batch_size", type=int, default=32)
     p.add_argument("--pool_type", default="max", choices=POOL_TYPES,

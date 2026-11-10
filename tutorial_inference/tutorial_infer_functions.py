@@ -24,8 +24,22 @@ import pandas as pd
 import scanpy as sc
 import torch
 
-sys.path.insert(0, "/fs/ess/PCON0022/lsxgf/tools_related/scGPT/")
-sys.path.insert(0, "/cluster/pixstor/xudong-lab/suli/tools_related/scGPT/")
+# ---- scGPT source path ----
+# Must be set via the SCGPT_PATH env var before importing this module.
+# tutorial_inference_rankmin.py sets it from its required --scgpt_path flag;
+# the notebook sets it in its configuration cell.
+_scgpt_path = os.environ.get("SCGPT_PATH")
+if not _scgpt_path:
+    raise RuntimeError(
+        "scGPT source path not set. Pass --scgpt_path /path/to/scGPT to "
+        "tutorial_inference_rankmin.py, or set SCGPT_PATH (env var / notebook "
+        "config) to the scGPT source directory that contains scgpt/."
+    )
+if not (Path(_scgpt_path) / "scgpt").is_dir():
+    raise FileNotFoundError(
+        f"SCGPT_PATH={_scgpt_path!r} does not contain a 'scgpt/' package directory."
+    )
+sys.path.insert(0, _scgpt_path)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
@@ -363,7 +377,7 @@ def compute_rankmin_study(score_mat_pooled, sample_s):
               fold to get a high rank_min).
     pred_s  : 1 if score_s exceeds that sample's own Jenks(k=2) threshold.
     """
-    rank_mat = score_mat_pooled.rank(method="average", ascending=True, axis=0))
+    rank_mat = score_mat_pooled.rank(method="average", ascending=True, axis=0)
     score_s = rank_mat.min(axis=1).rename("rank_min_study")
 
     pred_s = pd.Series(0, index=score_s.index, name="pred", dtype=int)
